@@ -224,6 +224,7 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
   <span id="virDiski" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center"></span>
   <span>📁 Najdeno: <span class="vir-found" id="virFound">0</span> / <span id="virTotal">0</span> spotov</span>
   <span>❌ Manjka: <span class="vir-miss" id="virMiss">0</span></span>
+  <button class="btn-vir" id="btnStopScan" onclick="abortScan()" style="padding:3px 9px;font-size:0.72rem;border-color:#fbbf24;color:#fbbf24;display:none">⏹ Ustavi</button>
   <button class="btn-vir" onclick="filterMissing()" title="Pokaži samo spote brez videa" style="padding:3px 9px;font-size:0.72rem" id="btnMissing">Pokaži manjkajoče</button>
   <button class="btn-vir" onclick="clearVideoSource()" style="padding:3px 9px;font-size:0.72rem;border-color:#f87171;color:#f87171">✕ Odstrani vse</button>
 </div>
@@ -601,28 +602,42 @@ async function pickVideoFolder() {
     if(window.showDirectoryPicker) {
       const dirHandle = await window.showDirectoryPicker();
       const sourceName = dirHandle.name;
-      document.getElementById('virScan').textContent = '⟳ Skeniram: ' + sourceName + '...';
+      scanAborted = false;
+      scanFileCount = 0;
+      document.getElementById('virScan').textContent = '⟳ Začenjam: ' + sourceName + '...';
       document.getElementById('virStats').classList.add('show');
+      document.getElementById('btnStopScan').style.display = 'inline-block';
       const before = Object.keys(fileMap).length;
       await scanDir(dirHandle);
+      document.getElementById('btnStopScan').style.display = 'none';
       const added = Object.keys(fileMap).length - before;
-      connectedSources.push({ name: sourceName, count: added });
+      if(!scanAborted) connectedSources.push({ name: sourceName, count: added });
+      else connectedSources.push({ name: sourceName + ' (ustavljeno)', count: added });
       updateVirStats();
       document.getElementById('btnVir').classList.add('active');
       document.getElementById('btnVir').textContent = '📁 + Dodaj vir';
     } else {
       const inp = document.createElement('input');
       inp.type='file'; inp.webkitdirectory=true; inp.multiple=true;
-      inp.onchange = ()=>{
+      inp.onchange = async ()=>{
         const firstName = inp.files[0]?.webkitRelativePath?.split('/')[0] || 'Disk';
+        document.getElementById('virStats').classList.add('show');
+        document.getElementById('virScan').textContent = '⟳ Nalagam: ' + firstName + '...';
         const before = Object.keys(fileMap).length;
-        Array.from(inp.files).forEach(f=>{ fileMap[f.name.toUpperCase()]=f; });
+        let i = 0;
+        for(const f of Array.from(inp.files)) {
+          fileMap[f.name.toUpperCase()] = f;
+          i++;
+          if(i % 50 === 0) {
+            document.getElementById('virScan').textContent = '⟳ ' + firstName + ' … ' + i + ' datotek';
+            await new Promise(r => setTimeout(r, 5));
+          }
+        }
         const added = Object.keys(fileMap).length - before;
         connectedSources.push({ name: firstName, count: added });
         updateVirStats();
         document.getElementById('btnVir').classList.add('active');
         document.getElementById('btnVir').textContent='📁 + Dodaj vir';
-        document.getElementById('virStats').classList.add('show');
       };
       inp.click();
     }
@@ -631,17 +646,34 @@ async function pickVideoFolder() {
   }
 }
 
-async function scanDir(handle, depth) {
-  if(depth>10) return;
+let scanAborted = false;
+let scanFileCount = 0;
+
+async function scanDir(handle, depth, path) {
+  if(depth > 10 || scanAborted) return;
+  const folder = path || handle.name;
+  let i = 0;
   for await(const entry of handle.values()) {
+    if(scanAborted) return;
     if(entry.kind==='file') {
-      const n=entry.name.toUpperCase();
+      const n = entry.name.toUpperCase();
       if(n.endsWith('.MPG')||n.endsWith('.MP4')||n.endsWith('.AVI')||n.endsWith('.MOV')||n.endsWith('.MTS')) {
         fileMap[n] = await entry.getFile();
+        scanFileCount++;
+        // Posodobi UI vsake 20 datotek — ne preveč pogosto
+        if(scanFileCount % 20 === 0) {
+          document.getElementById('virScan').textContent =
+            '⟳ ' + folder + ' … ' + scanFileCount + ' datotek';
+          await new Promise(r => setTimeout(r, 8)); // kratek premor — brskalnik diha
+        }
       }
     } else if(entry.kind==='directory') {
-      await scanDir(entry, (depth||0)+1);
+      document.getElementById('virScan').textContent =
+        '⟳ ' + entry.name + ' … ' + scanFileCount + ' datotek';
+      await new Promise(r => setTimeout(r, 5)); // premor med mapami
+      await scanDir(entry, (depth||0)+1, entry.name);
     }
+    i++;
   }
 }
 
@@ -665,6 +697,12 @@ function filterMissing() {
   showMissingOnly=!showMissingOnly;
   document.getElementById('btnMissing').textContent=showMissingOnly?'Pokaži vse':'Pokaži manjkajoče';
   mainPage=1; applyMain();
+}
+
+function abortScan() {
+  scanAborted = true;
+  document.getElementById('btnStopScan').style.display = 'none';
+  document.getElementById('virScan').textContent = '⏹ Iskanje ustavljeno — ' + scanFileCount + ' datotek';
 }
 
 function clearVideoSource() {
