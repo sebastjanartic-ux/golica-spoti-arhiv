@@ -398,11 +398,6 @@ function init() {
   // Close panel on Escape
   document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeEdit(); });
 
-  // Default: Produkcija Golica + GSPOT
-  document.getElementById('sheetFilter').value = 'Produkcija Golica';
-  gspotOnly = true;
-  document.getElementById('gspotBtn').classList.add('active');
-
   updateEditCount();
   applyMain();
   applyTuja();
