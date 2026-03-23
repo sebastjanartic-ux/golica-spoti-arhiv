@@ -619,52 +619,35 @@ let showMissingOnly = false;
 let currentVideoUrl = null;
 
 async function pickVideoFolder() {
-  try {
-    if(window.showDirectoryPicker) {
-      const dirHandle = await window.showDirectoryPicker();
-      const sourceName = dirHandle.name;
-      scanAborted = false;
-      scanFileCount = 0;
-      document.getElementById('virScan').textContent = '⟳ Začenjam: ' + sourceName + '...';
-      document.getElementById('virStats').classList.add('show');
-      document.getElementById('btnStopScan').style.display = 'inline-block';
-      const before = Object.keys(fileMap).length;
-      await scanDir(dirHandle);
-      document.getElementById('btnStopScan').style.display = 'none';
-      const added = Object.keys(fileMap).length - before;
-      if(!scanAborted) connectedSources.push({ name: sourceName, count: added });
-      else connectedSources.push({ name: sourceName + ' (ustavljeno)', count: added });
-      updateVirStats();
-      document.getElementById('btnVir').classList.add('active');
-      document.getElementById('btnVir').textContent = '📁 + Dodaj vir';
-    } else {
-      const inp = document.createElement('input');
-      inp.type='file'; inp.webkitdirectory=true; inp.multiple=true;
-      inp.onchange = async ()=>{
-        const firstName = inp.files[0]?.webkitRelativePath?.split('/')[0] || 'Disk';
-        document.getElementById('virStats').classList.add('show');
-        document.getElementById('virScan').textContent = '⟳ Nalagam: ' + firstName + '...';
-        const before = Object.keys(fileMap).length;
-        let i = 0;
-        for(const f of Array.from(inp.files)) {
-          fileMap[f.name.toUpperCase()] = f;
-          i++;
-          if(i % 50 === 0) {
-            document.getElementById('virScan').textContent = '⟳ ' + firstName + ' … ' + i + ' datotek';
-            await new Promise(r => setTimeout(r, 5));
-          }
-        }
-        const added = Object.keys(fileMap).length - before;
-        connectedSources.push({ name: firstName, count: added });
-        updateVirStats();
-        document.getElementById('btnVir').classList.add('active');
-        document.getElementById('btnVir').textContent='📁 + Dodaj vir';
-      };
-      inp.click();
+  // webkitdirectory — deluje z mreznimi diski, Hetzner storage box, mapped drives
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.webkitdirectory = true;
+  inp.multiple = true;
+  inp.onchange = async () => {
+    if(!inp.files || inp.files.length === 0) return;
+    const firstName = inp.files[0]?.webkitRelativePath?.split('/')[0] || 'Disk';
+    document.getElementById('virStats').classList.add('show');
+    document.getElementById('virScan').textContent = '⟳ Nalagam: ' + firstName + '...';
+    const before = Object.keys(fileMap).length;
+    const exts = ['.MPG','.MP4','.AVI','.MOV','.MTS','.MPEG','.MPE','.M2V','.WMV'];
+    let i = 0;
+    for(const f of Array.from(inp.files)) {
+      const n = f.name.toUpperCase();
+      if(exts.some(e => n.endsWith(e))) fileMap[n] = f;
+      i++;
+      if(i % 100 === 0) {
+        document.getElementById('virScan').textContent = '⟳ ' + firstName + ' … ' + i + ' pregledano / ' + Object.keys(fileMap).length + ' videi';
+        await new Promise(r => setTimeout(r, 8));
+      }
     }
-  } catch(e) {
-    if(e.name!=='AbortError') alert('Napaka pri izbiri mape: '+e.message);
-  }
+    const added = Object.keys(fileMap).length - before;
+    connectedSources.push({ name: firstName, count: added });
+    updateVirStats();
+    document.getElementById('btnVir').classList.add('active');
+    document.getElementById('btnVir').textContent = '📁 + Dodaj vir';
+  };
+  inp.click();
 }
 
 let scanAborted = false;
