@@ -136,6 +136,8 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
 .btn-vir{background:#0a1a2a;border:1px solid #3b82f6;color:#60a5fa;padding:7px 13px;border-radius:6px;cursor:pointer;font-size:0.76rem;font-weight:700}
 .btn-vir:hover{background:#1a2a3a}
 .btn-vir.active{background:#1e3a5f;border-color:#60a5fa;color:#fff}
+.btn-reconnect{background:#1a1200;border:1px solid #a16207;color:#fbbf24;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:0.72rem;font-weight:700;margin-right:4px}
+.btn-reconnect:hover{background:#2a2000;border-color:#fbbf24}
 .vir-stats{background:#0a1a0a;border-bottom:1px solid #1a2a1a;padding:7px 24px;font-size:0.78rem;color:#666;display:none;align-items:center;gap:14px;flex-wrap:wrap}
 .vir-stats.show{display:flex}
 .vir-found{color:#4ade80;font-weight:700}
@@ -220,6 +222,7 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
     <div class="save-indicator" id="saveIndicator">✓ Shranjeno</div>
     <div class="hstat" style="color:#e63946">Urejeno: <strong id="editCount">0</strong><span class="changes-badge" id="changesBadge">!</span></div>
     <button class="btn btn-reset" onclick="resetAllChanges()" title="Ponastavi vse spremembe">↺ Ponastavi</button>
+    <span id="virRemembered"></span>
     <button class="btn-vir" id="btnVir" onclick="pickVideoFolder()" title="Poveži mapo z videi">📁 Dodaj vir</button>
     <button class="btn-logout" onclick="doLogout()" title="Odjava">↩ Odjava</button>
   </div>
@@ -633,6 +636,76 @@ let showMissingOnly = false;
 let showFoundOnly = false;
 let currentVideoUrl = null;
 
+// Iskanje: najprej točno ime, potem osnova brez končnice (MP2/MPG mismatch fix)
+function findFile(filename) {
+  if(!filename) return null;
+  const up = filename.toUpperCase();
+  if(fileMap[up]) return fileMap[up];
+  const base = up.includes('.') ? up.slice(0, up.lastIndexOf('.')) : up;
+  const key = Object.keys(fileMap).find(k => {
+    const kb = k.includes('.') ? k.slice(0, k.lastIndexOf('.')) : k;
+    return kb === base;
+  });
+  return key ? fileMap[key] : null;
+}
+
+// Spomin na priklopljene vire (localStorage — velja čez logout in reload)
+const VIR_MEM_KEY = 'golica_vir_mem';
+
+function saveVirMemory() {
+  localStorage.setItem(VIR_MEM_KEY, JSON.stringify(
+    connectedSources.map(s => ({ name: s.name, count: s.count }))
+  ));
+}
+
+function loadVirMemory() {
+  try {
+    const mem = JSON.parse(localStorage.getItem(VIR_MEM_KEY) || '[]');
+    if(mem.length) renderReconnectBtns(mem);
+  } catch(e) {}
+}
+
+function renderReconnectBtns(sources) {
+  const connected = connectedSources.map(s => s.name);
+  const pending = sources.filter(s => !connected.includes(s.name));
+  const el = document.getElementById('virRemembered');
+  if(!el) return;
+  el.innerHTML = pending.map(s =>
+    `<button class="btn-reconnect" onclick="reconnectSource('${s.name.replace(/'/g,"\\'")}')">🔄 ${s.name}</button>`
+  ).join('');
+}
+
+function reconnectSource(name) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.webkitdirectory = true; inp.multiple = true;
+  inp.onchange = async () => {
+    if(!inp.files || inp.files.length === 0) return;
+    document.getElementById('virStats').classList.add('show');
+    document.getElementById('virScan').textContent = '⟳ Nalagam: ' + name + '...';
+    const before = Object.keys(fileMap).length;
+    const exts = ['.MPG','.MP4','.AVI','.MOV','.MTS','.MPEG','.MPE','.M2V','.WMV','.MP2'];
+    let i = 0;
+    for(const f of Array.from(inp.files)) {
+      const n = f.name.toUpperCase();
+      if(exts.some(e => n.endsWith(e))) fileMap[n] = f;
+      i++;
+      if(i % 100 === 0) {
+        document.getElementById('virScan').textContent = '⟳ ' + name + ' … ' + i + ' / ' + Object.keys(fileMap).length + ' videi';
+        await new Promise(r => setTimeout(r, 8));
+      }
+    }
+    const added = Object.keys(fileMap).length - before;
+    connectedSources = connectedSources.filter(s => s.name !== name);
+    connectedSources.push({ name, count: added });
+    saveVirMemory();
+    updateVirStats();
+    document.getElementById('btnVir').classList.add('active');
+    document.getElementById('btnVir').textContent = '📁 + Dodaj vir';
+    renderReconnectBtns(JSON.parse(localStorage.getItem(VIR_MEM_KEY)||'[]'));
+  };
+  inp.click();
+}
+
 async function pickVideoFolder() {
   // webkitdirectory — deluje z mreznimi diski, Hetzner storage box, mapped drives
   const inp = document.createElement('input');
@@ -645,7 +718,7 @@ async function pickVideoFolder() {
     document.getElementById('virStats').classList.add('show');
     document.getElementById('virScan').textContent = '⟳ Nalagam: ' + firstName + '...';
     const before = Object.keys(fileMap).length;
-    const exts = ['.MPG','.MP4','.AVI','.MOV','.MTS','.MPEG','.MPE','.M2V','.WMV'];
+    const exts = ['.MPG','.MP4','.AVI','.MOV','.MTS','.MPEG','.MPE','.M2V','.WMV','.MP2'];
     let i = 0;
     for(const f of Array.from(inp.files)) {
       const n = f.name.toUpperCase();
@@ -658,6 +731,8 @@ async function pickVideoFolder() {
     }
     const added = Object.keys(fileMap).length - before;
     connectedSources.push({ name: firstName, count: added });
+    saveVirMemory();
+    renderReconnectBtns(JSON.parse(localStorage.getItem(VIR_MEM_KEY)||'[]'));
     updateVirStats();
     document.getElementById('btnVir').classList.add('active');
     document.getElementById('btnVir').textContent = '📁 + Dodaj vir';
@@ -699,7 +774,7 @@ async function scanDir(handle, depth, path) {
 function updateVirStats() {
   const allFiles = [...MAIN_DATA, ...TUJA_DATA];
   let found=0, miss=0;
-  allFiles.forEach(r=>{ if(r.File){ (fileMap[r.File.toUpperCase()]?found++:miss++); } });
+  allFiles.forEach(r=>{ if(r.File){ (findFile(r.File)?found++:miss++); } });
   document.getElementById('virFound').textContent=found;
   document.getElementById('virMiss').textContent=miss;
   document.getElementById('virTotal').textContent=found+miss;
@@ -749,12 +824,12 @@ function clearVideoSource() {
 let plyrPlayer = null;
 
 // Formati ki jih brskalnik ne predvaja — takoj gredo v VLC prenos
-const VLC_EXTS = ['.MPG','.MPEG','.MPE','.M2V','.WMV'];
+const VLC_EXTS = ['.MPG','.MPEG','.MPE','.M2V','.WMV','.MP2'];
 
 function playVideo(id) {
   const r = effectiveRecord(MAIN_DATA.find(x=>x._id===id));
   if(!r||!r.File) return;
-  const file = fileMap[r.File.toUpperCase()];
+  const file = findFile(r.File);
   if(!file) return;
   if(currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
   currentVideoUrl = URL.createObjectURL(file);
@@ -889,6 +964,7 @@ function doLogin(){
     sessionStorage.setItem('golica_auth','1');
     document.getElementById('loginOverlay').classList.add('hidden');
     err.classList.remove('show');
+    loadVirMemory();
   } else {
     err.classList.add('show');
     document.getElementById('loginPass').value='';
@@ -900,6 +976,7 @@ function doLogin(){
 (function(){
   if(sessionStorage.getItem('golica_auth')==='1'){
     document.getElementById('loginOverlay').classList.add('hidden');
+    loadVirMemory();
   } else {
     setTimeout(()=>document.getElementById('loginPass').focus(),100);
   }
@@ -942,8 +1019,8 @@ function applyMain() {
     if(rezija && er.REŽIJA!==rezija) return false;
     if(gspotOnly && !er._gspot) return false;
     if(janiOnly && !(er._jani && er._gspot)) return false;
-    if(showMissingOnly && Object.keys(fileMap).length>0 && er.File && fileMap[er.File.toUpperCase()]) return false;
-    if(showFoundOnly && Object.keys(fileMap).length>0 && !(er.File && fileMap[er.File.toUpperCase()])) return false;
+    if(showMissingOnly && Object.keys(fileMap).length>0 && er.File && findFile(er.File)) return false;
+    if(showFoundOnly && Object.keys(fileMap).length>0 && !(er.File && findFile(er.File))) return false;
     if(q){
       const hay=[er.Artist,er.Title,er.File,er.REŽIJA,er.Type].join(' ').toLowerCase();
       if(!q.split(' ').every(w=>hay.includes(w))) return false;
@@ -978,7 +1055,7 @@ function renderMain() {
     const leg=er._label||er._sheet;
     const rezName=formatRezija(er.REŽIJA);
     const rezB=rezBadge(er.REŽIJA);
-    const hasVideo = er.File && fileMap[er.File.toUpperCase()];
+    const hasVideo = er.File && findFile(er.File);
     const playBtn = hasVideo ? `<button class="play-btn" onclick="event.stopPropagation();playVideo(${r._id})" title="Predvajaj video">▶</button>` : '';
     return `<tr class="${rowCls}" onclick="openEdit(${r._id})" title="Klikni za urejanje">
       <td class="artist">${esc(er.Artist||'')}</td>
