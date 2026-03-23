@@ -397,6 +397,27 @@ const TUJA_DATA = [{"_sheet": "TUJA PRODUKCIJA", "Artist": "SEKSTAKORD", "Title"
 const SHEETS = ["Produkcija Golica", "ACAPELA", "CELJE", "DEBELI HRIB", "EPD", "GOLICA V ŽIVO", "GOTER", "GRAŠKA GORA", "GVŽ", "IZ DOMAČE SKRINJE", "KONCERTI", "LIVE", "NEDEFINIRANI", "NEMŠKI", "NOČ MODRIJANOV", "PREPIH POD KOSTANJEM", "ŽM"];
 const PB_URL = 'https://pb.biba.live';
 const PB_COL = 'spot_edits';
+let pbToken = '';
+
+async function pbAuth() {
+  try {
+    const res = await fetch(`${PB_URL}/api/collections/users/auth-with-password`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({identity:'app@golica.live', password:'GolicaApp2026!'})
+    });
+    if(res.ok) {
+      const data = await res.json();
+      pbToken = data.token || '';
+    }
+  } catch(e) { console.warn('PB auth error:', e); }
+}
+
+function pbHeaders() {
+  const h = {'Content-Type':'application/json'};
+  if(pbToken) h['Authorization'] = 'Bearer ' + pbToken;
+  return h;
+}
 const CAT_COLORS = {'Produkcija Golica':'#4ade80','EPD':'#60a5fa','ŽM':'#60a5fa','GVŽ':'#60a5fa','GOLICA V ŽIVO':'#60a5fa','IZ DOMAČE SKRINJE':'#60a5fa','PREPIH POD KOSTANJEM':'#f97316','NOČ MODRIJANOV':'#f97316','ACAPELA':'#e879f9','GOTER':'#f97316','GRAŠKA GORA':'#f97316','KONCERTI':'#a78bfa','LIVE':'#a78bfa'};
 const REZIJA_LABELS = {'pavec':'Jani Pavec','farič':'Izidor Farič','Sebastjan Artič':'Sebastjan Artič','babošek , pavec':'Dejan Babošek','bogdan zalokar':'Bogdan Zalokar','zalokar':'Bogdan Zalokar','farič izidor':'Izidor Farič','zalokar, pavec':'Bogdan Zalokar / Jani Pavec','zalokar bogdan, pavec':'Bogdan Zalokar / Jani Pavec'};
 
@@ -470,7 +491,7 @@ async function pbLogHistory(spotId, changes) {
   try {
     await fetch(`${PB_URL}/api/collections/spot_history/records`, {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: pbHeaders(),
       body: JSON.stringify({
         spot_id: spotId,
         artist: changes.Artist || '',
@@ -496,13 +517,13 @@ async function pbSaveEdit(spotId, changes) {
     if(existing && existing._pb_id) {
       res = await fetch(`${PB_URL}/api/collections/${PB_COL}/records/${existing._pb_id}`, {
         method: 'PATCH',
-        headers: {'Content-Type':'application/json'},
+        headers: pbHeaders(),
         body: JSON.stringify(body)
       });
     } else {
       res = await fetch(`${PB_URL}/api/collections/${PB_COL}/records`, {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
+        headers: pbHeaders(),
         body: JSON.stringify(body)
       });
     }
@@ -521,7 +542,7 @@ async function pbSaveEdit(spotId, changes) {
 async function pbDeleteEdit(spotId) {
   const existing = edits[spotId];
   if(existing && existing._pb_id) {
-    await fetch(`${PB_URL}/api/collections/${PB_COL}/records/${existing._pb_id}`, {method:'DELETE'});
+    await fetch(`${PB_URL}/api/collections/${PB_COL}/records/${existing._pb_id}`, {method:'DELETE', headers:pbHeaders()});
   }
 }
 
@@ -540,7 +561,7 @@ async function resetAllChanges() {
   }
   if(!confirm('Ponastavi VSE spremembe vseh uporabnikov? To dejanje je nepovratno.')) return;
   const ids = Object.values(edits).map(e=>e._pb_id).filter(Boolean);
-  await Promise.all(ids.map(id => fetch(`${PB_URL}/api/collections/${PB_COL}/records/${id}`, {method:'DELETE'})));
+  await Promise.all(ids.map(id => fetch(`${PB_URL}/api/collections/${PB_COL}/records/${id}`, {method:'DELETE', headers:pbHeaders()})));
   edits = {};
   updateEditCount();
   applyMain();
@@ -588,7 +609,7 @@ function init() {
   updateEditCount();
   applyMain();
   applyTuja();
-  pbLoadEdits(); // naloži spremembe iz PocketBase
+  pbAuth().then(()=>pbLoadEdits()); // avtentikacija + naloži spremembe
 }
 
 // ===================== VIDEO VIR =====================
