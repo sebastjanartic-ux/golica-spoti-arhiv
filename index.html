@@ -144,15 +144,22 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
 .play-btn{background:#1a3a1a;border:1px solid #4ade80;color:#4ade80;border-radius:5px;padding:3px 9px;font-size:0.72rem;cursor:pointer;white-space:nowrap;flex-shrink:0}
 .play-btn:hover{background:#4ade80;color:#000}
 /* VIDEO PLAYER OVERLAY */
-#videoOverlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.95);display:none;flex-direction:column;align-items:center;justify-content:center}
+#videoOverlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.97);display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px}
 #videoOverlay.show{display:flex}
-.vplayer-header{color:#fff;text-align:center;margin-bottom:14px;max-width:900px;padding:0 20px}
-.vplayer-title{font-size:1.1rem;font-weight:700;margin-bottom:3px}
-.vplayer-sub{font-size:0.8rem;color:#888}
-#videoEl{max-width:90vw;max-height:75vh;background:#000;border-radius:6px;outline:none}
-.vplayer-close{position:absolute;top:20px;right:24px;background:none;border:none;color:#666;font-size:1.6rem;cursor:pointer;line-height:1}
+.vplayer-header{color:#fff;text-align:center;margin-bottom:16px;max-width:960px;width:100%;padding:0 20px}
+.vplayer-title{font-size:1.15rem;font-weight:700;margin-bottom:4px}
+.vplayer-sub{font-size:0.78rem;color:#666;letter-spacing:1px}
+.vplayer-wrap{width:100%;max-width:960px;position:relative}
+.vplayer-close{position:absolute;top:20px;right:24px;background:none;border:none;color:#555;font-size:1.8rem;cursor:pointer;line-height:1;z-index:10001}
 .vplayer-close:hover{color:#fff}
-.vplayer-err{color:#f87171;margin-top:12px;font-size:0.85rem;text-align:center;display:none}
+.vplayer-err{margin-top:16px;background:#1a0a0a;border:1px solid #f87171;border-radius:8px;padding:16px 20px;max-width:960px;width:100%;display:none}
+.vplayer-err-title{color:#f87171;font-weight:700;margin-bottom:8px;font-size:0.9rem}
+.vplayer-err-msg{color:#aaa;font-size:0.82rem;margin-bottom:12px}
+.vplayer-dlbtn{background:#d4154b;color:#fff;border:none;border-radius:6px;padding:9px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;margin-right:8px;text-decoration:none;display:inline-block}
+.vplayer-dlbtn:hover{background:#b5103e}
+.vplayer-vlcbtn{background:#1a1a1a;color:#888;border:1px solid #333;border-radius:6px;padding:9px 18px;font-size:0.82rem;cursor:pointer}
+--plyr-color-main: #d4154b;
+--plyr-video-background: #000;
 
 /* LOGIN */
 #loginOverlay{position:fixed;inset:0;z-index:9999;background:#0a0a0a;display:flex;align-items:center;justify-content:center}
@@ -179,6 +186,7 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
 .btn-logout{background:none;border:1px solid #333;color:#555;padding:5px 11px;border-radius:6px;cursor:pointer;font-size:0.72rem;font-weight:700;letter-spacing:1px;transition:all .2s}
 .btn-logout:hover{border-color:#d4154b;color:#d4154b}
 </style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.8/plyr.min.css">
 </head>
 <body>
 
@@ -237,8 +245,15 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
     <div class="vplayer-title" id="vplayerTitle"></div>
     <div class="vplayer-sub" id="vplayerSub"></div>
   </div>
-  <video id="videoEl" controls autoplay></video>
-  <div class="vplayer-err" id="vplayerErr">⚠ Brskalnik ne more predvajati tega formata. Poskusi z VLC ali drugim predvajalnikom.</div>
+  <div class="vplayer-wrap">
+    <video id="videoEl" playsinline controls></video>
+  </div>
+  <div class="vplayer-err" id="vplayerErr">
+    <div class="vplayer-err-title">⚠ Brskalnik ne podpira tega video formata</div>
+    <div class="vplayer-err-msg">MPG/MPEG-2 datoteke zahtevajo zunanji predvajalnik. Prenesi datoteko in odpri v VLC.</div>
+    <a class="vplayer-dlbtn" id="vplayerDlBtn" download>⬇ Prenesi datoteko</a>
+    <span class="vplayer-vlcbtn" onclick="window.open('https://www.videolan.org/vlc/','_blank')">📥 Prenesi VLC</span>
+  </div>
 </div>
 
 <div class="tabs">
@@ -733,6 +748,8 @@ function clearVideoSource() {
   renderMain();
 }
 
+let plyrPlayer = null;
+
 function playVideo(id) {
   const r = effectiveRecord(MAIN_DATA.find(x=>x._id===id));
   if(!r||!r.File) return;
@@ -740,18 +757,51 @@ function playVideo(id) {
   if(!file) return;
   if(currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
   currentVideoUrl = URL.createObjectURL(file);
-  const vid = document.getElementById('videoEl');
-  vid.src = currentVideoUrl;
+
   document.getElementById('vplayerTitle').textContent=(r.Artist||'')+(r.Title?' — '+r.Title:'');
   document.getElementById('vplayerSub').textContent=r.File+' · '+(r._sheet||'');
   document.getElementById('vplayerErr').style.display='none';
+
+  const vid = document.getElementById('videoEl');
+
+  // Uniči star Plyr če obstaja
+  if(plyrPlayer) { try{ plyrPlayer.destroy(); }catch(e){} plyrPlayer=null; }
+
+  vid.src = currentVideoUrl;
+  vid.load();
+
+  // Inicializiraj Plyr
+  if(window.Plyr) {
+    plyrPlayer = new Plyr(vid, {
+      controls:['play-large','play','rewind','fast-forward','progress','current-time','duration','mute','volume','fullscreen'],
+      keyboard:{focused:true,global:false},
+      tooltips:{controls:true},
+      invertTime:false,
+    });
+  }
+
   document.getElementById('videoOverlay').classList.add('show');
-  vid.play().catch(()=>{
+
+  const tryPlay = () => vid.play().catch(()=>{
+    // Nastavi download link
+    const dlBtn = document.getElementById('vplayerDlBtn');
+    dlBtn.href = currentVideoUrl;
+    dlBtn.download = r.File;
     document.getElementById('vplayerErr').style.display='block';
   });
+
+  vid.addEventListener('canplay', tryPlay, {once:true});
+  vid.addEventListener('error', ()=>{
+    const dlBtn = document.getElementById('vplayerDlBtn');
+    dlBtn.href = currentVideoUrl;
+    dlBtn.download = r.File;
+    document.getElementById('vplayerErr').style.display='block';
+  }, {once:true});
+  setTimeout(()=>{ if(vid.paused && vid.readyState===0) tryPlay(); }, 1500);
 }
 
 function closeVideo() {
+  if(plyrPlayer) { try{ plyrPlayer.pause(); plyrPlayer.destroy(); }catch(e){} plyrPlayer=null; }
   const vid=document.getElementById('videoEl');
   vid.pause(); vid.src='';
   if(currentVideoUrl){URL.revokeObjectURL(currentVideoUrl);currentVideoUrl=null;}
@@ -946,5 +996,6 @@ function renderPag(id,total,current,onPage){
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 init();
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.8/plyr.min.js"></script>
 </body>
 </html>
