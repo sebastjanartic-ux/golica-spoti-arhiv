@@ -221,10 +221,11 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
 <!-- VIDEO STATS BAR -->
 <div class="vir-stats" id="virStats">
   <span class="vir-scan" id="virScan"></span>
+  <span id="virDiski" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center"></span>
   <span>📁 Najdeno: <span class="vir-found" id="virFound">0</span> / <span id="virTotal">0</span> spotov</span>
   <span>❌ Manjka: <span class="vir-miss" id="virMiss">0</span></span>
   <button class="btn-vir" onclick="filterMissing()" title="Pokaži samo spote brez videa" style="padding:3px 9px;font-size:0.72rem" id="btnMissing">Pokaži manjkajoče</button>
-  <button class="btn-vir" onclick="clearVideoSource()" style="padding:3px 9px;font-size:0.72rem;border-color:#f87171;color:#f87171">✕ Odstrani vir</button>
+  <button class="btn-vir" onclick="clearVideoSource()" style="padding:3px 9px;font-size:0.72rem;border-color:#f87171;color:#f87171">✕ Odstrani vse</button>
 </div>
 
 <!-- VIDEO PLAYER OVERLAY -->
@@ -591,31 +592,36 @@ function init() {
 
 // ===================== VIDEO VIR =====================
 let fileMap = {}; // { 'FILENAME.MPG': File }
+let connectedSources = []; // [ { name, count } ]
 let showMissingOnly = false;
 let currentVideoUrl = null;
 
 async function pickVideoFolder() {
   try {
     if(window.showDirectoryPicker) {
-      // Moderna API (Chrome/Edge)
       const dirHandle = await window.showDirectoryPicker();
-      document.getElementById('virScan').textContent = '⟳ Skeniram mapo...';
+      const sourceName = dirHandle.name;
+      document.getElementById('virScan').textContent = '⟳ Skeniram: ' + sourceName + '...';
       document.getElementById('virStats').classList.add('show');
-      fileMap = {};
+      const before = Object.keys(fileMap).length;
       await scanDir(dirHandle);
+      const added = Object.keys(fileMap).length - before;
+      connectedSources.push({ name: sourceName, count: added });
       updateVirStats();
       document.getElementById('btnVir').classList.add('active');
-      document.getElementById('btnVir').textContent = '📁 Vir povezan';
+      document.getElementById('btnVir').textContent = '📁 + Dodaj vir';
     } else {
-      // Fallback — stari brskalniki
       const inp = document.createElement('input');
       inp.type='file'; inp.webkitdirectory=true; inp.multiple=true;
       inp.onchange = ()=>{
-        fileMap={};
+        const firstName = inp.files[0]?.webkitRelativePath?.split('/')[0] || 'Disk';
+        const before = Object.keys(fileMap).length;
         Array.from(inp.files).forEach(f=>{ fileMap[f.name.toUpperCase()]=f; });
+        const added = Object.keys(fileMap).length - before;
+        connectedSources.push({ name: firstName, count: added });
         updateVirStats();
         document.getElementById('btnVir').classList.add('active');
-        document.getElementById('btnVir').textContent='📁 Vir povezan';
+        document.getElementById('btnVir').textContent='📁 + Dodaj vir';
         document.getElementById('virStats').classList.add('show');
       };
       inp.click();
@@ -646,7 +652,12 @@ function updateVirStats() {
   document.getElementById('virFound').textContent=found;
   document.getElementById('virMiss').textContent=miss;
   document.getElementById('virTotal').textContent=found+miss;
-  document.getElementById('virScan').textContent='✓ '+Object.keys(fileMap).length+' datotek najdenih v mapi';
+  document.getElementById('virScan').textContent='✓ '+Object.keys(fileMap).length+' datotek';
+  // Izpiši seznam povezanih diskov
+  const diskEl = document.getElementById('virDiski');
+  diskEl.innerHTML = connectedSources.map(s=>
+    `<span style="background:#1a2a1a;border:1px solid #2a3a2a;border-radius:4px;padding:2px 8px;font-size:0.72rem;color:#4ade80">💾 ${s.name} <span style="color:#555">(${s.count})</span></span>`
+  ).join('');
   renderMain();
 }
 
@@ -658,10 +669,12 @@ function filterMissing() {
 
 function clearVideoSource() {
   fileMap={};
+  connectedSources=[];
   showMissingOnly=false;
   document.getElementById('virStats').classList.remove('show');
   document.getElementById('btnVir').classList.remove('active');
   document.getElementById('btnVir').textContent='📁 Dodaj vir';
+  document.getElementById('virDiski').innerHTML='';
   renderMain();
 }
 
