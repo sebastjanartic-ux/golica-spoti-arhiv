@@ -406,6 +406,22 @@ function rezBadge(r) {
   return `<span class="badge badge-rez badge-rez-other">${esc(r)}</span>`;
 }
 
+async function pbLogHistory(spotId, changes) {
+  try {
+    await fetch(`${PB_URL}/api/collections/spot_history/records`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        spot_id: spotId,
+        artist: changes.Artist || '',
+        title: changes.Title || '',
+        rezija: changes.REŽIJA || '',
+        sheet: changes._sheet || '',
+      })
+    });
+  } catch(e) { /* history logging je neobvezno — napaka ne ustavi shranjevanja */ }
+}
+
 async function pbSaveEdit(spotId, changes) {
   const existing = edits[spotId];
   const body = {
@@ -436,6 +452,7 @@ async function pbSaveEdit(spotId, changes) {
       const ind = document.getElementById('saveIndicator');
       ind.classList.add('show');
       setTimeout(()=>ind.classList.remove('show'), 1500);
+      pbLogHistory(spotId, changes); // zabeleži v zgodovino
     }
   } catch(e) { console.error('PB save error:', e); }
   updateEditCount();
@@ -455,8 +472,13 @@ function updateEditCount() {
 }
 
 async function resetAllChanges() {
-  if(!confirm('Ponastavi vse spremembe? To dejanje je nepovratno.')) return;
-  // Delete all from PocketBase
+  const geslo = prompt('Admin geslo za ponastavitev:');
+  if(geslo === null) return; // klikal Cancel
+  if(geslo !== 'golica_admin') {
+    alert('Napačno geslo. Ponastavitev ni dovoljena.');
+    return;
+  }
+  if(!confirm('Ponastavi VSE spremembe vseh uporabnikov? To dejanje je nepovratno.')) return;
   const ids = Object.values(edits).map(e=>e._pb_id).filter(Boolean);
   await Promise.all(ids.map(id => fetch(`${PB_URL}/api/collections/${PB_COL}/records/${id}`, {method:'DELETE'})));
   edits = {};
