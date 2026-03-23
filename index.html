@@ -152,10 +152,10 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
 .vplayer-wrap{width:100%;max-width:960px;position:relative}
 .vplayer-close{position:absolute;top:20px;right:24px;background:none;border:none;color:#555;font-size:1.8rem;cursor:pointer;line-height:1;z-index:10001}
 .vplayer-close:hover{color:#fff}
-.vplayer-err{margin-top:16px;background:#1a0a0a;border:1px solid #f87171;border-radius:8px;padding:16px 20px;max-width:960px;width:100%;display:none}
-.vplayer-err-title{color:#f87171;font-weight:700;margin-bottom:8px;font-size:0.9rem}
-.vplayer-err-msg{color:#aaa;font-size:0.82rem;margin-bottom:12px}
-.vplayer-dlbtn{background:#d4154b;color:#fff;border:none;border-radius:6px;padding:9px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;margin-right:8px;text-decoration:none;display:inline-block}
+.vplayer-err{margin-top:16px;background:#0a1520;border:2px solid #3b82f6;border-radius:10px;padding:24px 28px;max-width:960px;width:100%;display:none;text-align:center}
+.vplayer-err-title{color:#60a5fa;font-weight:700;margin-bottom:8px;font-size:1.05rem}
+.vplayer-err-msg{color:#888;font-size:0.82rem;margin-bottom:18px}
+.vplayer-dlbtn{background:#d4154b;color:#fff;border:none;border-radius:6px;padding:12px 28px;font-size:0.9rem;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block;letter-spacing:0.5px}
 .vplayer-dlbtn:hover{background:#b5103e}
 .vplayer-vlcbtn{background:#1a1a1a;color:#888;border:1px solid #333;border-radius:6px;padding:9px 18px;font-size:0.82rem;cursor:pointer}
 :root{--plyr-color-main:#d4154b;--plyr-video-background:#000;}
@@ -248,10 +248,9 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
     <video id="videoEl" playsinline controls></video>
   </div>
   <div class="vplayer-err" id="vplayerErr">
-    <div class="vplayer-err-title">⚠ Brskalnik ne podpira tega video formata</div>
-    <div class="vplayer-err-msg">MPG/MPEG-2 datoteke zahtevajo zunanji predvajalnik. Prenesi datoteko in odpri v VLC.</div>
+    <div class="vplayer-err-title" id="vplayerErrTitle">🎬 Odpri v VLC predvajalniku</div>
+    <div class="vplayer-err-msg" id="vplayerErrMsg">Datoteka se samodejno prenese — odpri jo v VLC predvajalniku.</div>
     <a class="vplayer-dlbtn" id="vplayerDlBtn" download>⬇ Prenesi datoteko</a>
-    <span class="vplayer-vlcbtn" onclick="window.open('https://www.videolan.org/vlc/','_blank')">📥 Prenesi VLC</span>
   </div>
 </div>
 
@@ -749,6 +748,9 @@ function clearVideoSource() {
 
 let plyrPlayer = null;
 
+// Formati ki jih brskalnik ne predvaja — takoj gredo v VLC prenos
+const VLC_EXTS = ['.MPG','.MPEG','.MPE','.M2V','.WMV'];
+
 function playVideo(id) {
   const r = effectiveRecord(MAIN_DATA.find(x=>x._id===id));
   if(!r||!r.File) return;
@@ -762,14 +764,33 @@ function playVideo(id) {
   document.getElementById('vplayerErr').style.display='none';
 
   const vid = document.getElementById('videoEl');
-
-  // Uniči star Plyr če obstaja
   if(plyrPlayer) { try{ plyrPlayer.destroy(); }catch(e){} plyrPlayer=null; }
 
+  // Preveri ali format podpira brskalnik
+  const fExt = r.File.toUpperCase().slice(r.File.lastIndexOf('.'));
+  const needsVlc = VLC_EXTS.includes(fExt);
+
+  if(needsVlc) {
+    // MPG/MPEG — preskoči player, takoj ponudi prenos za VLC
+    vid.style.display = 'none';
+    vid.src = '';
+    const dlBtn = document.getElementById('vplayerDlBtn');
+    dlBtn.href = currentVideoUrl;
+    dlBtn.download = r.File;
+    document.getElementById('vplayerErrTitle').textContent = '🎬 ' + r.File;
+    document.getElementById('vplayerErrMsg').textContent = 'MPG/MPEG-2 datoteke brskalnik ne predvaja. Prenesi in odpri v VLC.';
+    document.getElementById('vplayerErr').style.display = 'block';
+    document.getElementById('videoOverlay').classList.add('show');
+    // Samodejno sproži prenos
+    setTimeout(() => dlBtn.click(), 400);
+    return;
+  }
+
+  // Formati ki jih brskalnik podpira (MP4, AVI, MOV, MTS...)
+  vid.style.display = '';
   vid.src = currentVideoUrl;
   vid.load();
 
-  // Inicializiraj Plyr
   if(window.Plyr) {
     plyrPlayer = new Plyr(vid, {
       controls:['play-large','play','rewind','fast-forward','progress','current-time','duration','mute','volume','fullscreen'],
@@ -782,10 +803,11 @@ function playVideo(id) {
   document.getElementById('videoOverlay').classList.add('show');
 
   const tryPlay = () => vid.play().catch(()=>{
-    // Nastavi download link
     const dlBtn = document.getElementById('vplayerDlBtn');
     dlBtn.href = currentVideoUrl;
     dlBtn.download = r.File;
+    document.getElementById('vplayerErrTitle').textContent = '⚠ Brskalnik ne podpira tega formata';
+    document.getElementById('vplayerErrMsg').textContent = 'Prenesi datoteko in jo odpri v VLC.';
     document.getElementById('vplayerErr').style.display='block';
   });
 
@@ -794,6 +816,8 @@ function playVideo(id) {
     const dlBtn = document.getElementById('vplayerDlBtn');
     dlBtn.href = currentVideoUrl;
     dlBtn.download = r.File;
+    document.getElementById('vplayerErrTitle').textContent = '⚠ Brskalnik ne podpira tega formata';
+    document.getElementById('vplayerErrMsg').textContent = 'Prenesi datoteko in jo odpri v VLC.';
     document.getElementById('vplayerErr').style.display='block';
   }, {once:true});
   setTimeout(()=>{ if(vid.paused && vid.readyState===0) tryPlay(); }, 1500);
@@ -803,7 +827,9 @@ function closeVideo() {
   if(plyrPlayer) { try{ plyrPlayer.pause(); plyrPlayer.destroy(); }catch(e){} plyrPlayer=null; }
   const vid=document.getElementById('videoEl');
   vid.pause(); vid.src='';
+  vid.style.display=''; // Ponastavi za naslednjič
   if(currentVideoUrl){URL.revokeObjectURL(currentVideoUrl);currentVideoUrl=null;}
+  document.getElementById('vplayerErr').style.display='none';
   document.getElementById('videoOverlay').classList.remove('show');
 }
 
