@@ -131,9 +131,41 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
 .rezija-info h3{font-size:.73rem;color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:9px}
 .rez-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:.81rem}
 .rez-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* LOGIN */
+#loginOverlay{position:fixed;inset:0;z-index:9999;background:#0f0f0f;display:flex;align-items:center;justify-content:center}
+#loginOverlay.hidden{display:none}
+.login-card{background:#161616;border:1px solid #2a2a2a;border-radius:16px;padding:48px 44px;width:100%;max-width:380px;text-align:center;box-shadow:0 0 60px rgba(230,57,70,0.08)}
+.login-logo{font-size:2.6rem;margin-bottom:6px}
+.login-title{font-size:1.35rem;font-weight:800;color:#fff;letter-spacing:2px;margin-bottom:4px}
+.login-sub{font-size:0.78rem;color:#444;letter-spacing:1px;text-transform:uppercase;margin-bottom:36px}
+.login-input-wrap{position:relative;margin-bottom:14px}
+.login-input-wrap input{width:100%;padding:13px 16px;background:#1e1e1e;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-size:1rem;outline:none;text-align:center;letter-spacing:3px;transition:border-color .2s}
+.login-input-wrap input:focus{border-color:#e63946}
+.login-input-wrap input::placeholder{letter-spacing:1px;color:#333;font-size:0.85rem}
+.login-btn{width:100%;padding:13px;background:#e63946;border:none;border-radius:8px;color:#fff;font-size:0.95rem;font-weight:700;letter-spacing:1px;cursor:pointer;transition:background .2s;margin-top:4px}
+.login-btn:hover{background:#c92d3a}
+.login-err{color:#e63946;font-size:0.8rem;margin-top:10px;min-height:18px;opacity:0;transition:opacity .2s}
+.login-err.show{opacity:1}
+.login-footer{margin-top:32px;font-size:0.68rem;color:#2a2a2a;letter-spacing:1px}
 </style>
 </head>
 <body>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay">
+  <div class="login-card">
+    <div class="login-logo">🎬</div>
+    <div class="login-title">SPOTI ARHIV</div>
+    <div class="login-sub">Golica · Video arhiv</div>
+    <div class="login-input-wrap">
+      <input type="password" id="loginPass" placeholder="Vpiši geslo" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">VSTOPI</button>
+    <div class="login-err" id="loginErr">Napačno geslo</div>
+    <div class="login-footer">GOLICA TV · INTERNI ARHIV</div>
+  </div>
+</div>
 
 <header>
   <h1>🎬 SPOTI ARHIV — Golica</h1>
@@ -476,6 +508,31 @@ function init() {
   applyTuja();
   pbLoadEdits(); // naloži spremembe iz PocketBase
 }
+
+// LOGIN
+const LOGIN_PASS = 'golica2026';
+function doLogin(){
+  const val = document.getElementById('loginPass').value;
+  const err = document.getElementById('loginErr');
+  if(val === LOGIN_PASS){
+    sessionStorage.setItem('golica_auth','1');
+    document.getElementById('loginOverlay').classList.add('hidden');
+    err.classList.remove('show');
+  } else {
+    err.classList.add('show');
+    document.getElementById('loginPass').value='';
+    document.getElementById('loginPass').focus();
+    setTimeout(()=>err.classList.remove('show'),2500);
+  }
+}
+// Preveri session ob nalaganju
+(function(){
+  if(sessionStorage.getItem('golica_auth')==='1'){
+    document.getElementById('loginOverlay').classList.add('hidden');
+  } else {
+    setTimeout(()=>document.getElementById('loginPass').focus(),100);
+  }
+})();
 
 function switchTab(tab) {
   ['nase','tuja','legenda'].forEach(t=>{
