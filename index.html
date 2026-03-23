@@ -771,18 +771,16 @@ function playVideo(id) {
   const needsVlc = VLC_EXTS.includes(fExt);
 
   if(needsVlc) {
-    // MPG/MPEG — preskoči player, takoj ponudi prenos za VLC
+    // MPG/MPEG — preskoči player, pokaži gumb za prenos
     vid.style.display = 'none';
     vid.src = '';
     const dlBtn = document.getElementById('vplayerDlBtn');
     dlBtn.href = currentVideoUrl;
     dlBtn.download = r.File;
     document.getElementById('vplayerErrTitle').textContent = '🎬 ' + r.File;
-    document.getElementById('vplayerErrMsg').textContent = 'MPG/MPEG-2 datoteke brskalnik ne predvaja. Prenesi in odpri v VLC.';
+    document.getElementById('vplayerErrMsg').textContent = 'MPG/MPEG-2 datoteke brskalnik ne predvaja — prenesi in odpri v VLC.';
     document.getElementById('vplayerErr').style.display = 'block';
     document.getElementById('videoOverlay').classList.add('show');
-    // Samodejno sproži prenos
-    setTimeout(() => dlBtn.click(), 400);
     return;
   }
 
