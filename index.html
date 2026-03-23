@@ -771,16 +771,63 @@ function playVideo(id) {
   const needsVlc = VLC_EXTS.includes(fExt);
 
   if(needsVlc) {
-    // MPG/MPEG — preskoči player, pokaži gumb za prenos
+    // MPG/MPEG — konvertiraj z ffmpeg.wasm in predvajaj v brskalniku
     vid.style.display = 'none';
     vid.src = '';
-    const dlBtn = document.getElementById('vplayerDlBtn');
-    dlBtn.href = currentVideoUrl;
-    dlBtn.download = r.File;
-    document.getElementById('vplayerErrTitle').textContent = '🎬 ' + r.File;
-    document.getElementById('vplayerErrMsg').textContent = 'MPG/MPEG-2 datoteke brskalnik ne predvaja — prenesi in odpri v VLC.';
+    document.getElementById('vplayerErrTitle').textContent = '⟳ Nalagam video dekoder...';
+    document.getElementById('vplayerErrMsg').textContent = 'Prosim počakaj, MPG datoteka se dekodira za predvajanje v brskalniku.';
     document.getElementById('vplayerErr').style.display = 'block';
+    document.getElementById('vplayerDlBtn').style.display = 'none';
     document.getElementById('videoOverlay').classList.add('show');
+
+    (async () => {
+      try {
+        // Naloži ffmpeg.wasm enkrat
+        if(!window._ffmpegLoaded) {
+          await new Promise((res, rej) => {
+            const s1 = document.createElement('script');
+            s1.src = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/umd/ffmpeg.js';
+            s1.onload = res; s1.onerror = rej;
+            document.head.appendChild(s1);
+          });
+          window._ffmpegLoaded = true;
+        }
+        const { FFmpeg } = window.FFmpegWASM || window;
+        const ffmpeg = new FFmpeg();
+        document.getElementById('vplayerErrTitle').textContent = '⟳ Dekodiram: ' + r.File;
+
+        ffmpeg.on('progress', ({progress}) => {
+          const pct = Math.round(progress * 100);
+          document.getElementById('vplayerErrMsg').textContent = `Dekodiram: ${r.File} — ${pct}%`;
+        });
+
+        await ffmpeg.load({
+          coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+        });
+
+        // Prepiši MPG datoteko v ffmpeg
+        const arrBuf = await file.arrayBuffer();
+        await ffmpeg.writeFile('input.mpg', new Uint8Array(arrBuf));
+        await ffmpeg.exec(['-i','input.mpg','-c:v','libx264','-preset','ultrafast','-c:a','aac','output.mp4']);
+        const data = await ffmpeg.readFile('output.mp4');
+        const mp4Blob = new Blob([data.buffer], {type:'video/mp4'});
+        const mp4Url = URL.createObjectURL(mp4Blob);
+
+        document.getElementById('vplayerErr').style.display = 'none';
+        document.getElementById('vplayerDlBtn').style.display = '';
+        vid.style.display = '';
+        vid.src = mp4Url;
+        plyrPlayer = new Plyr(vid, {controls:['play','progress','current-time','mute','volume','fullscreen']});
+        vid.play().catch(()=>{});
+      } catch(e) {
+        document.getElementById('vplayerErrTitle').textContent = '❌ Napaka pri dekodiranju';
+        document.getElementById('vplayerErrMsg').textContent = 'Prenesi datoteko in jo odpri v VLC.';
+        document.getElementById('vplayerDlBtn').style.display = '';
+        const dlBtn = document.getElementById('vplayerDlBtn');
+        dlBtn.href = currentVideoUrl;
+        dlBtn.download = r.File;
+      }
+    })();
     return;
   }
 
