@@ -155,21 +155,29 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
 .vplayer-err{color:#f87171;margin-top:12px;font-size:0.85rem;text-align:center;display:none}
 
 /* LOGIN */
-#loginOverlay{position:fixed;inset:0;z-index:9999;background:#0f0f0f;display:flex;align-items:center;justify-content:center}
+#loginOverlay{position:fixed;inset:0;z-index:9999;background:#0a0a0a;display:flex;align-items:center;justify-content:center}
 #loginOverlay.hidden{display:none}
-.login-card{background:#161616;border:1px solid #2a2a2a;border-radius:16px;padding:48px 44px;width:100%;max-width:380px;text-align:center;box-shadow:0 0 60px rgba(230,57,70,0.08)}
-.login-logo{font-size:2.6rem;margin-bottom:6px}
-.login-title{font-size:1.35rem;font-weight:800;color:#fff;letter-spacing:2px;margin-bottom:4px}
-.login-sub{font-size:0.78rem;color:#444;letter-spacing:1px;text-transform:uppercase;margin-bottom:36px}
-.login-input-wrap{position:relative;margin-bottom:14px}
-.login-input-wrap input{width:100%;padding:13px 16px;background:#1e1e1e;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-size:1rem;outline:none;text-align:center;letter-spacing:3px;transition:border-color .2s}
-.login-input-wrap input:focus{border-color:#e63946}
-.login-input-wrap input::placeholder{letter-spacing:1px;color:#333;font-size:0.85rem}
-.login-btn{width:100%;padding:13px;background:#e63946;border:none;border-radius:8px;color:#fff;font-size:0.95rem;font-weight:700;letter-spacing:1px;cursor:pointer;transition:background .2s;margin-top:4px}
-.login-btn:hover{background:#c92d3a}
-.login-err{color:#e63946;font-size:0.8rem;margin-top:10px;min-height:18px;opacity:0;transition:opacity .2s}
+.login-card{background:#111;border:1px solid #1e1e1e;border-radius:16px;padding:52px 48px;width:100%;max-width:400px;text-align:center;box-shadow:0 0 80px rgba(212,20,75,0.12)}
+.login-brand{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:32px}
+.login-bracket{font-size:3.2rem;font-weight:900;color:#d4154b;line-height:1;font-family:'Arial Black',sans-serif;letter-spacing:-4px;margin-right:2px}
+.login-brand-text{text-align:left;line-height:1.05}
+.login-brand-row1{font-size:1.05rem;font-weight:900;color:#fff;letter-spacing:3px;display:block;font-family:'Arial Black',sans-serif}
+.login-brand-row2{font-size:1.05rem;font-weight:900;color:#fff;letter-spacing:3px;display:block;font-family:'Arial Black',sans-serif}
+.login-brand-row3{font-size:0.62rem;font-weight:900;color:#fff;letter-spacing:4px;display:block;font-family:'Arial Black',sans-serif}
+.login-divider{width:48px;height:2px;background:#d4154b;margin:0 auto 24px}
+.login-sub{font-size:0.72rem;color:#444;letter-spacing:2px;text-transform:uppercase;margin-bottom:28px}
+.login-input-wrap{position:relative;margin-bottom:12px}
+.login-input-wrap input{width:100%;padding:14px 16px;background:#1a1a1a;border:1.5px solid #222;border-radius:8px;color:#fff;font-size:1rem;outline:none;text-align:center;letter-spacing:4px;transition:border-color .2s}
+.login-input-wrap input:focus{border-color:#d4154b}
+.login-input-wrap input::placeholder{letter-spacing:1px;color:#333;font-size:0.82rem}
+.login-btn{width:100%;padding:14px;background:#d4154b;border:none;border-radius:8px;color:#fff;font-size:0.88rem;font-weight:900;letter-spacing:2px;cursor:pointer;transition:background .2s;margin-top:4px;font-family:'Arial Black',sans-serif}
+.login-btn:hover{background:#b5103e}
+.login-err{color:#d4154b;font-size:0.8rem;margin-top:10px;min-height:18px;opacity:0;transition:opacity .2s}
 .login-err.show{opacity:1}
-.login-footer{margin-top:32px;font-size:0.68rem;color:#2a2a2a;letter-spacing:1px}
+.login-footer{margin-top:28px;font-size:0.65rem;color:#222;letter-spacing:2px;text-transform:uppercase}
+/* LOGOUT BTN */
+.btn-logout{background:none;border:1px solid #333;color:#555;padding:5px 11px;border-radius:6px;cursor:pointer;font-size:0.72rem;font-weight:700;letter-spacing:1px;transition:all .2s}
+.btn-logout:hover{border-color:#d4154b;color:#d4154b}
 </style>
 </head>
 <body>
@@ -177,15 +185,21 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
 <!-- LOGIN OVERLAY -->
 <div id="loginOverlay">
   <div class="login-card">
-    <div class="login-logo">🎬</div>
-    <div class="login-title">SPOTI ARHIV</div>
+    <div class="login-brand">
+      <div class="login-bracket">1]</div>
+      <div class="login-brand-text">
+        <span class="login-brand-row1">PRIME TIME</span>
+        <span class="login-brand-row2">ENTERPRISE</span>
+      </div>
+    </div>
+    <div class="login-divider"></div>
     <div class="login-sub">Golica · Video arhiv</div>
     <div class="login-input-wrap">
       <input type="password" id="loginPass" placeholder="Vpiši geslo" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="login-btn" onclick="doLogin()">VSTOPI</button>
     <div class="login-err" id="loginErr">Napačno geslo</div>
-    <div class="login-footer">GOLICA TV · INTERNI ARHIV</div>
+    <div class="login-footer">INTERNI ARHIV · ZAUPNO</div>
   </div>
 </div>
 
@@ -200,6 +214,7 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
     <div class="hstat" style="color:#e63946">Urejeno: <strong id="editCount">0</strong><span class="changes-badge" id="changesBadge">!</span></div>
     <button class="btn btn-reset" onclick="resetAllChanges()" title="Ponastavi vse spremembe">↺ Ponastavi</button>
     <button class="btn-vir" id="btnVir" onclick="pickVideoFolder()" title="Poveži mapo z videi">📁 Dodaj vir</button>
+    <button class="btn-logout" onclick="doLogout()" title="Odjava">↩ Odjava</button>
   </div>
 </header>
 
@@ -677,7 +692,7 @@ function closeVideo() {
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&document.getElementById('videoOverlay').classList.contains('show')) closeVideo(); });
 
-// LOGIN
+// LOGIN / LOGOUT
 const LOGIN_PASS = 'golica2026';
 function doLogin(){
   const val = document.getElementById('loginPass').value;
@@ -701,6 +716,13 @@ function doLogin(){
     setTimeout(()=>document.getElementById('loginPass').focus(),100);
   }
 })();
+
+function doLogout() {
+  sessionStorage.removeItem('golica_auth');
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('loginPass').value='';
+  setTimeout(()=>document.getElementById('loginPass').focus(),100);
+}
 
 function switchTab(tab) {
   ['nase','tuja','legenda'].forEach(t=>{
@@ -856,4 +878,4 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 init();
 </script>
 </body>
-</html><!-- build Mon Mar 23 21:33:02 CET 2026 -->
+</html>
