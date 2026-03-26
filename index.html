@@ -275,6 +275,7 @@ td.file{font-family:monospace;font-size:0.72rem;color:#555}
   <div class="table-wrap">
     <table>
       <thead><tr>
+        <th style="color:#444;font-size:0.72rem;width:36px;text-align:right;cursor:default">#</th>
         <th onclick="sortBy('Artist')" id="th-Artist">Izvajalec</th>
         <th onclick="sortBy('Title')" id="th-Title">Naslov</th>
         <th onclick="sortBy('_sheet')" id="th-_sheet">Kategorija</th>
@@ -1044,8 +1045,10 @@ function renderMain() {
   const tbody=document.getElementById('tableBody'),none=document.getElementById('noResults');
   if(!filteredMain.length){tbody.innerHTML='';none.style.display='block';return;}
   none.style.display='none';
-  const slice=filteredMain.slice((mainPage-1)*PAGE,mainPage*PAGE);
-  tbody.innerHTML=slice.map(r=>{
+  const pageStart=(mainPage-1)*PAGE;
+  const slice=filteredMain.slice(pageStart,pageStart+PAGE);
+  tbody.innerHTML=slice.map((r,i)=>{
+    const rowNum=pageStart+i+1;
     const er=effectiveRecord(r);
     const color=CAT_COLORS[er._sheet]||'#444';
     const isEdited=!!edits[r._id];
@@ -1058,6 +1061,7 @@ function renderMain() {
     const hasVideo = er.File && findFile(er.File);
     const playBtn = hasVideo ? `<button class="play-btn" onclick="event.stopPropagation();playVideo(${r._id})" title="Predvajaj video">▶</button>` : '';
     return `<tr class="${rowCls}" onclick="openEdit(${r._id})" title="Klikni za urejanje">
+      <td style="text-align:right;color:#444;font-size:0.7rem;padding-right:8px;user-select:none">${rowNum}</td>
       <td class="artist">${esc(er.Artist||'')}</td>
       <td class="title">${esc(er.Title||'')}</td>
       <td><span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;color:#aaa"><span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0"></span>${esc(leg)}</span></td>
